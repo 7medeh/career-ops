@@ -100,6 +100,18 @@ title_filter:
     - "Head"
     - "Director"
 
+# -- Location filter --
+# Soft filter applied during scan (modes/scan.md), same spirit as title_filter:
+# a listing passes if remote_only is false OR the listing looks remote, OR its
+# location text contains at least one of allowed_locations (case-insensitive).
+# Filtered-out listings are logged in scan-history.tsv with status
+# "skipped_location", same pattern as "skipped_title".
+location_filter:
+  remote_only: false
+  allowed_locations:
+    # [CUSTOMIZE] Cities/regions you'd take an on-site or hybrid role in.
+    - "Remote"
+
 # -- Search queries --
 # Each query triggers a WebSearch. Use site: to filter by portal.
 # The scanner extracts title, URL, and company from results.

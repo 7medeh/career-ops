@@ -4,8 +4,15 @@ Interactive mode for when the candidate is filling out an application form in Ch
 
 ## Requirements
 
-- **Best with Playwright in visible mode**: In visible mode, the candidate sees the browser and Claude can interact with the page.
-- **Without Playwright**: the candidate shares a screenshot or pastes the questions manually.
+- **Best with Playwright/Chrome automation in visible mode**: the candidate sees the browser and Claude can interact with the page.
+- **Without Playwright/Chrome**: the candidate shares a screenshot or pastes the questions manually.
+
+## Two output modes
+
+- **Copy-paste (default)**: generate responses for the candidate to paste in themselves. Always available, works from a screenshot or pasted text alone.
+- **Assisted fill (requires Chrome automation)**: actually populate the fields on the live page via `mcp__claude-in-chrome__form_input`, then stop for the candidate's review before Submit. Use this when Chrome automation is connected AND either the candidate asks to have the form filled directly, or this session was launched via the dashboard's "Apply" action (which starts with that expectation). Falls back to copy-paste for any field Claude isn't confident about, or entirely if Chrome automation isn't available.
+
+In both modes, **the hard rule from `AGENTS.md`'s Ethical Use section is unchanged: never click Submit/Send/Apply/Confirm.** The candidate always makes the final call.
 
 ## Workflow
 
@@ -16,8 +23,8 @@ Interactive mode for when the candidate is filling out an application form in Ch
 4. LOAD        → Read full report + Section G (if it exists)
 5. COMPARE     → Does the role on screen match the one evaluated? If it changed → notify
 6. ANALYZE     → Identify ALL visible form questions
-7. GENERATE    → For each question, generate a personalized response
-8. PRESENT     → Show formatted responses for copy-paste
+7. GENERATE    → For each question, generate a personalized response + present for copy-paste
+8. FILL        → (assisted-fill mode only) populate confident fields directly, flag the rest, screenshot for review
 ```
 
 ## Step 1 — Detect the job
@@ -92,7 +99,20 @@ Notes:
 - [Personalization suggestions the candidate should review]
 ```
 
-## Step 6 — Post-apply (optional)
+## Step 6 — Assisted fill (optional, requires Chrome automation)
+
+Only when Chrome browser automation is connected AND (the candidate explicitly asked for it, or this session was launched via the dashboard's "Apply" action). Otherwise skip straight to the copy-paste output in Step 5.
+
+For each question generated in Step 5:
+1. **If confident** (clear mapping, unambiguous value — name, email from `cv.md`/`config/profile.yml`, a straightforward yes/no, a dropdown option with an exact or obvious match): fill it directly via `mcp__claude-in-chrome__form_input` (or `computer` click+type for controls `form_input` can't reach).
+2. **If not confident** — an ambiguous dropdown option, a value requiring a personal judgment call, a field whose purpose is unclear, or anything touching the prohibited categories in this system's Action Categories (financial/payment fields, passwords, account creation, CAPTCHAs): **do not fill it.** Leave it for the candidate and include it in the Step 5 copy-paste output instead.
+3. Never touch the Submit/Send/Apply/Confirm control. Never enter payment details, passwords, or SSN/government ID fields under any circumstances, per this system's hard rules — those stay manual regardless of how confident the mapping looks.
+4. After filling what you're confident about, take a screenshot of the completed form and show it to the candidate alongside the list of fields you filled and the fields you left for them.
+5. Remind the candidate (per `modes/_profile.md`'s stealth rules, if stealth mode is on): apply from personal device + personal network only.
+
+**Stop here.** The candidate reviews the filled form and the flagged fields, completes anything left, and clicks Submit themselves.
+
+## Step 7 — Post-apply (optional)
 
 If the candidate confirms that they submitted the application:
 1. Update status in `applications.md` from "Evaluated" to "Applied"

@@ -1,19 +1,52 @@
-# Personal data (user fills these)
-data/applications.md
-data/pipeline.md
-data/scan-history.tsv
-reports/*.md
-!reports/.gitkeep
+# ============================================================
+# PERSONAL DATA / PII -- NEVER COMMIT
+# Mirrors the "User Layer" in DATA_CONTRACT.md and AGENTS.md.
+# This repo has a PUBLIC remote. Anything not matched here is
+# one `git add .` away from being published.
+# ============================================================
+
+# CV and proof points (source of truth for every generated resume)
+cv.md
+cv-*.md
+article-digest.md
+
+# Generated resumes, cover letters, and PDFs
 output/*
 !output/.gitkeep
+/*.pdf
+/*.docx
+
+# Reference documents (real resumes, offer letters, scanned docs)
+references/
+references/*
+
+# Evaluation reports (contain comp figures, gaps, personal strategy)
+reports/*.md
+!reports/.gitkeep
+
+# Interview prep (STAR stories, company intel, personal reflections)
+interview-prep/*
+!interview-prep/.gitkeep
+
+# Tracker, pipeline, contacts, scan history, follow-ups
+data/*
+!data/.gitkeep
+
+# Job descriptions saved locally
+jds/*
+!jds/.gitkeep
+
+# Outreach drafts and contact list
+outreach/*
+!outreach/.gitkeep
+
+# Batch processing state and per-evaluation tracker rows
 batch/logs/*
 !batch/logs/.gitkeep
 batch/batch-state.tsv
 batch/batch-input.tsv
-batch/tracker-additions/*.tsv
+batch/tracker-additions/*
 !batch/tracker-additions/.gitkeep
-jds/*
-!jds/.gitkeep
 
 # User config and customization (never auto-updated)
 config/profile.yml
@@ -31,8 +64,13 @@ node_modules/
 *.mov
 *.mp4
 
-# Claude Code local
+# Claude Code local (memory and project state hold personal facts)
 .claude/settings.local.json
 .claude/memory/
+.claude/projects/
+.claude/jobs/
 career-dashboard
+Career Dashboard.app/
+dashboard/desktop/build/bin/
+dashboard/desktop/frontend/wailsjs/
 package-lock.json

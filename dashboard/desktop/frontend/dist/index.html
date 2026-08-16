@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Career Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="titlebar" style="--wails-draggable:drag">
+    <div class="brand">Career&nbsp;Dashboard</div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="pipeline">Pipeline</button>
+      <button class="tab" data-tab="listings">Listings</button>
+      <button class="tab" data-tab="preferences">Preferences</button>
+    </nav>
+    <button id="refresh" class="ghost" title="Reload data">&#x21bb;</button>
+  </header>
+
+  <main>
+    <!-- Pipeline -->
+    <section id="pipeline" class="view active">
+      <div class="metrics" id="metrics"></div>
+      <div class="table-wrap">
+        <table id="apps-table">
+          <thead>
+            <tr>
+              <th>#</th><th>Company</th><th>Role</th><th>Score</th>
+              <th>Status</th><th>Comp</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="apps-body"></tbody>
+        </table>
+      </div>
+      <p class="empty" id="apps-empty" hidden>No applications yet.</p>
+    </section>
+
+    <!-- Listings -->
+    <section id="listings" class="view">
+      <div class="toolbar">
+        <span class="count" id="listings-count"></span>
+        <button id="scan" class="primary">Scan for new roles</button>
+      </div>
+      <div class="table-wrap">
+        <table id="listings-table">
+          <thead>
+            <tr>
+              <th data-key="Fit" class="sortable">Fit <span class="arrow"></span></th>
+              <th data-key="Company" class="sortable">Company <span class="arrow"></span></th>
+              <th data-key="Title" class="sortable">Title <span class="arrow"></span></th>
+              <th data-key="Salary" class="sortable">Salary <span class="arrow"></span></th>
+              <th data-key="YOE" class="sortable">YOE <span class="arrow"></span></th>
+              <th data-key="FirstSeen" class="sortable">First seen <span class="arrow"></span></th>
+              <th data-key="Portal" class="sortable">Portal <span class="arrow"></span></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="listings-body"></tbody>
+        </table>
+      </div>
+      <p class="empty" id="listings-empty" hidden>
+        No open listings yet. Click &ldquo;Scan for new roles&rdquo; to discover some.
+      </p>
+    </section>
+
+    <!-- Preferences -->
+    <section id="preferences" class="view">
+      <form id="prefs-form" class="prefs">
+        <label>Salary target range
+          <input type="text" id="pref-target" placeholder="$130K-170K" />
+        </label>
+        <label>Salary minimum
+          <input type="text" id="pref-min" placeholder="$125K" />
+        </label>
+        <label>Location flexibility
+          <input type="text" id="pref-loc" placeholder="Remote / hybrid / cities" />
+        </label>
+
+        <div class="keywords">
+          <div class="keywords-label">Position keywords (title_filter.positive)</div>
+          <div class="chip-row" id="pref-keywords"></div>
+          <div class="add-kw">
+            <input type="text" id="pref-newkw" placeholder="Add a keyword and press Enter" />
+            <button type="button" id="pref-addkw" class="ghost">Add</button>
+          </div>
+          <p class="hint">Removing keywords isn&rsquo;t supported here &mdash; ask Claude to edit portals.yml directly.</p>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="primary">Save preferences</button>
+          <span id="prefs-status" class="status"></span>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

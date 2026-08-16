@@ -48,6 +48,12 @@ type PipelineRefreshMsg struct{}
 // PipelineOpenProgressMsg is emitted when the progress screen should open.
 type PipelineOpenProgressMsg struct{}
 
+// PipelineOpenListingsMsg is emitted when the listings screen should open.
+type PipelineOpenListingsMsg struct{}
+
+// PipelineOpenPreferencesMsg is emitted when the preferences screen should open.
+type PipelineOpenPreferencesMsg struct{}
+
 type reportSummary struct {
 	archetype string
 	tldr      string
@@ -321,6 +327,12 @@ func (m PipelineModel) handleKey(msg tea.KeyMsg) (PipelineModel, tea.Cmd) {
 
 	case "p":
 		return m, func() tea.Msg { return PipelineOpenProgressMsg{} }
+
+	case "L":
+		return m, func() tea.Msg { return PipelineOpenListingsMsg{} }
+
+	case "P":
+		return m, func() tea.Msg { return PipelineOpenPreferencesMsg{} }
 
 	case "r":
 		return m, func() tea.Msg { return PipelineRefreshMsg{} }
@@ -871,6 +883,8 @@ func (m PipelineModel) renderHelp() string {
 		keyStyle.Render("c") + descStyle.Render(" change  ") +
 		keyStyle.Render("v") + descStyle.Render(" view  ") +
 		keyStyle.Render("p") + descStyle.Render(" progress  ") +
+		keyStyle.Render("L") + descStyle.Render(" listings  ") +
+		keyStyle.Render("P") + descStyle.Render(" preferences  ") +
 		keyStyle.Render("Esc") + descStyle.Render(" quit")
 
 	gap := m.width - lipgloss.Width(keys) - lipgloss.Width(brand) - 2
