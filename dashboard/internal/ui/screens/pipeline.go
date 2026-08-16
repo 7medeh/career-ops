@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/santifer/career-ops/dashboard/internal/data"
+	guiscreens "github.com/santifer/career-ops/dashboard/internal/gui/screens"
 	"github.com/santifer/career-ops/dashboard/internal/i18n"
 	"github.com/santifer/career-ops/dashboard/internal/model"
 	"github.com/santifer/career-ops/dashboard/internal/theme"
@@ -663,6 +664,13 @@ func (m PipelineModel) handleKey(msg tea.KeyMsg) (PipelineModel, tea.Cmd) {
 
 	case "p":
 		return m, func() tea.Msg { return PipelineOpenProgressMsg{} }
+
+	// GUI layer (internal/gui). See internal/gui/screens/msgs.go.
+	case "L":
+		return m, func() tea.Msg { return guiscreens.OpenListingsMsg{} }
+
+	case "P":
+		return m, func() tea.Msg { return guiscreens.OpenPreferencesMsg{} }
 
 	case "r":
 		return m, func() tea.Msg { return PipelineRefreshMsg{} }
@@ -1998,6 +2006,8 @@ func (m PipelineModel) renderHelp() string {
 		keyStyle.Render("C") + descStyle.Render(i18n.Current.HelpColumns) +
 		keyStyle.Render("v") + descStyle.Render(i18n.Current.HelpView) +
 		keyStyle.Render("p") + descStyle.Render(i18n.Current.HelpProgress) +
+		keyStyle.Render("L") + descStyle.Render(" listings  ") +
+		keyStyle.Render("P") + descStyle.Render(" preferences  ") +
 		keyStyle.Render("t") + descStyle.Render(i18n.Current.HelpLanguage) +
 		keyStyle.Render("m") + descStyle.Render(i18n.Current.HelpManifesto) +
 		keyStyle.Render("q") + descStyle.Render(i18n.Current.HelpQuit)

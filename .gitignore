@@ -151,3 +151,36 @@ documents/*
 # Intake fingerprints — the recorded source filenames may themselves carry
 # PII (e.g. cv/jane-doe-master-cv.pdf). #1723
 data/intake-state.json
+
+# ============================================================
+# Local additions (this fork) — union with the upstream rules above.
+# ============================================================
+
+# Tailored CV variants alongside the canonical cv.md
+cv-*.md
+
+# Reference documents (real resumes, offer letters, scanned docs) — PII
+references/
+
+# Any resume/cover-letter artefact dropped in the repo root
+/*.pdf
+/*.docx
+
+# Outreach drafts (contain contact names and personal framing)
+outreach/*
+!outreach/.gitkeep
+
+# Claude Code local state — .claude/projects/ holds auto-memory files with
+# personal feedback and preferences. Upstream ignores .claude/memory/ but not
+# this path, so it must be added explicitly. (PII — never commit.)
+.claude/projects/
+.claude/jobs/
+
+# Stray Go build outputs in dashboard/
+dashboard/scan
+dashboard/career-dashboard
+
+# Wails desktop build artefacts and generated bindings
+Career Dashboard.app/
+dashboard/desktop/build/bin/
+dashboard/desktop/frontend/wailsjs/

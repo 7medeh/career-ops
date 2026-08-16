@@ -11,6 +11,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/santifer/career-ops/dashboard/internal/data"
+	"github.com/santifer/career-ops/dashboard/internal/gui"
+	guiscreens "github.com/santifer/career-ops/dashboard/internal/gui/screens"
 	"github.com/santifer/career-ops/dashboard/internal/i18n"
 	"github.com/santifer/career-ops/dashboard/internal/model"
 	"github.com/santifer/career-ops/dashboard/internal/theme"
@@ -23,12 +25,16 @@ const (
 	viewPipeline viewState = iota
 	viewReport
 	viewProgress
+	viewListings
+	viewPreferences
 )
 
 type appModel struct {
 	pipeline        screens.PipelineModel
 	viewer          screens.ViewerModel
 	progress        screens.ProgressModel
+	listings        guiscreens.ListingsModel
+	preferences     guiscreens.PreferencesModel
 	state           viewState
 	careerOpsPath   string
 	theme           theme.Theme
@@ -40,6 +46,13 @@ func (m *appModel) reloadPipelineData() {
 	metrics := data.ComputeMetrics(apps)
 	m.progressMetrics = data.ComputeProgressMetrics(apps)
 	m.pipeline = m.pipeline.WithReloadedData(apps, metrics)
+}
+
+// reloadListings rebuilds the listings screen from data/pipeline.md and
+// data/scan-history.tsv, overlaid with cached Levels.fyi company profiles.
+func (m *appModel) reloadListings() {
+	listings := gui.ParseListings(m.careerOpsPath)
+	m.listings = guiscreens.NewListingsModel(m.theme, listings, m.careerOpsPath, m.pipeline.Width(), m.pipeline.Height())
 }
 
 func (m appModel) Init() tea.Cmd {
@@ -66,6 +79,12 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.state == viewProgress {
 			m.progress.Resize(msg.Width, msg.Height)
+		}
+		if m.state == viewListings {
+			m.listings.Resize(msg.Width, msg.Height)
+		}
+		if m.state == viewPreferences {
+			m.preferences.Resize(msg.Width, msg.Height)
 		}
 		pm, cmd := m.pipeline.Update(msg)
 		m.pipeline = pm
@@ -176,6 +195,61 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case screens.PipelineGeneratePDFMsg:
 		return m, runGeneratePDF(msg)
 
+	case guiscreens.OpenListingsMsg:
+		m.reloadListings()
+		m.state = viewListings
+		return m, nil
+
+	case guiscreens.ListingsClosedMsg:
+		m.state = viewPipeline
+		return m, nil
+
+	case guiscreens.ListingsRefreshMsg:
+		m.reloadListings()
+		return m, nil
+
+	case guiscreens.ListingsOpenURLMsg:
+		return m, openCmd(msg.URL)
+
+	case guiscreens.ListingsScanMsg:
+		return m, gui.ScanHandoff(m.careerOpsPath, func() tea.Msg {
+			return guiscreens.ListingsRefreshMsg{}
+		})
+
+	case guiscreens.ListingsApplyMsg:
+		return m, gui.ApplyHandoff(m.careerOpsPath, msg.URL)
+
+	case guiscreens.ListingsEmailMsg:
+		return m, gui.OutreachHandoff(m.careerOpsPath, msg.Company, msg.Title, msg.URL, msg.Contacts)
+
+	case guiscreens.ListingsEnrichMsg:
+		return m, gui.EnrichCompaniesCmd(m.careerOpsPath, m.listings.Listings())
+
+	case gui.EnrichDoneMsg:
+		m.reloadListings()
+		m.listings.SetStatus(msg.Summary)
+		return m, nil
+
+	case gui.ApplyHandoffDoneMsg:
+		m.reloadListings()
+		m.reloadPipelineData()
+		return m, nil
+
+	case guiscreens.OpenPreferencesMsg:
+		prefs, _ := gui.ReadPreferences(m.careerOpsPath)
+		m.preferences = guiscreens.NewPreferencesModel(m.theme, prefs, m.careerOpsPath, m.pipeline.Width(), m.pipeline.Height())
+		m.state = viewPreferences
+		return m, nil
+
+	case guiscreens.PreferencesClosedMsg:
+		m.state = viewPipeline
+		return m, nil
+
+	case guiscreens.PreferencesSaveMsg:
+		err := gui.WritePreferences(msg.CareerOpsPath, msg.Prefs)
+		m.preferences.SetSaveResult(err)
+		return m, nil
+
 	default:
 		if m.state == viewReport {
 			vm, cmd := m.viewer.Update(msg)
@@ -185,6 +259,16 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state == viewProgress {
 			pg, cmd := m.progress.Update(msg)
 			m.progress = pg
+			return m, cmd
+		}
+		if m.state == viewListings {
+			lm, cmd := m.listings.Update(msg)
+			m.listings = lm
+			return m, cmd
+		}
+		if m.state == viewPreferences {
+			prm, cmd := m.preferences.Update(msg)
+			m.preferences = prm
 			return m, cmd
 		}
 		pm, cmd := m.pipeline.Update(msg)
@@ -250,6 +334,10 @@ func (m appModel) View() string {
 		return m.viewer.View()
 	case viewProgress:
 		return m.progress.View()
+	case viewListings:
+		return m.listings.View()
+	case viewPreferences:
+		return m.preferences.View()
 	default:
 		return m.pipeline.View()
 	}

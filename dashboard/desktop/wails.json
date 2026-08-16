@@ -1,0 +1,15 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "career-dashboard",
+  "outputfilename": "Career Dashboard",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "author": {
+    "name": "Walid Hamade"
+  },
+  "info": {
+    "productName": "Career Dashboard",
+    "productVersion": "1.0.0"
+  }
+}
