@@ -138,6 +138,24 @@ td.company { font-weight: 600; }
   border-radius: 8px; padding: 8px 16px; cursor: pointer; font-weight: 600; margin-left: auto;
 }
 .primary:hover { filter: brightness(1.06); }
+.primary:disabled { opacity: .45; cursor: default; filter: none; }
+
+/* Paste-a-link apply bar. Sits between the titlebar and the tab views so it is
+   reachable from every tab -- a link someone sends you is not a "listings" thing. */
+.applybar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 18px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.applybar-label { font-weight: 600; font-size: 13px; color: var(--subtext); white-space: nowrap; }
+.applybar .primary { margin-left: 0; flex: none; }
+.url-input {
+  flex: 1; min-width: 0;
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 9px 11px; font-size: 14px;
+}
+.url-input:focus { outline: none; border-color: var(--accent); }
+.url-input.invalid { border-color: var(--red); }
 
 /* Preferences */
 .prefs { max-width: 640px; display: flex; flex-direction: column; gap: 16px; }

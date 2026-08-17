@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -91,11 +92,12 @@ func (a *App) UpdateStatus(reportNumber, newStatus string) error {
 }
 
 // OpenURL opens a job posting in the user's default browser.
-func (a *App) OpenURL(url string) {
-	if url == "" {
+// Parameter is rawURL, not url, so it does not shadow the net/url package.
+func (a *App) OpenURL(rawURL string) {
+	if rawURL == "" {
 		return
 	}
-	wruntime.BrowserOpenURL(a.ctx, url)
+	wruntime.BrowserOpenURL(a.ctx, rawURL)
 }
 
 // Scan runs a native ATS scan (Greenhouse/Ashby/Lever) directly from the
@@ -105,9 +107,6 @@ func (a *App) Scan() (gui.ScanResult, error) {
 	return gui.Scan(a.repoPath)
 }
 
-// Apply opens a Terminal window running the interactive evaluate+apply pipeline
-// for a posting. The session stops before Submit (per modes/apply.md and
-// AGENTS.md); the user reviews and submits themselves.
 // ClearListings empties the listing stores so the next scan repopulates them
 // under the current portals.yml filter. See gui.ClearListings for why retuning
 // title_filter does nothing without this.
@@ -115,16 +114,72 @@ func (a *App) ClearListings() (gui.ClearResult, error) {
 	return gui.ClearListings(a.repoPath)
 }
 
-func (a *App) Apply(url string) error {
+// Apply opens a Terminal window running the interactive evaluate+apply pipeline
+// for a posting. The session stops before Submit (per modes/apply.md and
+// AGENTS.md); the user reviews and submits themselves.
+//
+// The URL may come from a scanned listing or be pasted by hand into the
+// Listings tab, so it is validated here rather than only in the frontend --
+// the binding is reachable regardless of what the UI does.
+func (a *App) Apply(rawURL string) error {
+	jobURL, err := validateJobURL(rawURL)
+	if err != nil {
+		return err
+	}
 	prompt := fmt.Sprintf(
 		"Evaluate this job posting if it isn't already evaluated, following modes/oferta.md: %s. "+
 			"Then run the apply flow from modes/apply.md: curate a tailored resume, and use Chrome "+
 			"browser automation to open the posting and fill in the fields you're confident about. "+
 			"For anything ambiguous or requiring a judgment call, stop and ask me. "+
 			"Never click Submit -- I will review and submit myself.",
-		url,
+		jobURL,
 	)
-	return a.runInTerminal(fmt.Sprintf("cd %q && exec claude %q", a.repoPath, prompt))
+	return a.runInTerminal(fmt.Sprintf("cd %s && exec claude %s",
+		shellQuote(a.repoPath), shellQuote(prompt)))
+}
+
+// validateJobURL normalizes a job posting URL and rejects anything that is not
+// a plain http(s) link.
+//
+// This is a correctness gate before it is a convenience one: the URL is
+// interpolated into a bash command in runInTerminal, and bash still expands
+// $(...), backticks and $VAR inside double quotes. shellQuote closes that hole
+// on the quoting side; this closes it on the input side, and also spares the
+// user a Terminal window that opens only to fail on a typo.
+func validateJobURL(rawURL string) (string, error) {
+	s := strings.TrimSpace(rawURL)
+	if s == "" {
+		return "", fmt.Errorf("paste a job posting URL first")
+	}
+	// A pasted link should be a single token. Embedded whitespace means the
+	// paste picked up surrounding text (or is deliberately malformed).
+	if strings.ContainsAny(s, " \t\r\n") {
+		return "", fmt.Errorf("that looks like more than a URL -- paste just the link")
+	}
+	u, err := url.Parse(s)
+	if err != nil {
+		return "", fmt.Errorf("that does not parse as a URL: %w", err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		if u.Scheme == "" {
+			return "", fmt.Errorf("missing http:// or https:// on that link")
+		}
+		return "", fmt.Errorf("only http and https links are supported (got %q)", u.Scheme)
+	}
+	if u.Host == "" {
+		return "", fmt.Errorf("that link has no site in it")
+	}
+	return u.String(), nil
+}
+
+// shellQuote wraps s in single quotes for safe use in a bash command line.
+//
+// Single quotes suppress every bash expansion, so the only character needing
+// care is the single quote itself, which is closed, escaped, and reopened.
+// fmt's %q is Go quoting, not shell quoting: it escapes " and \ but leaves $
+// and backticks intact, which bash would then expand inside double quotes.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 // runInTerminal writes a one-shot launcher script and opens it in a new Terminal

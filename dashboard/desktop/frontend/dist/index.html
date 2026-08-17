@@ -17,6 +17,22 @@
     <button id="refresh" class="ghost" title="Reload data">&#x21bb;</button>
   </header>
 
+  <!-- Apply to any posting, scanned or not. Lives outside <main> so it is on
+       every tab: a link someone sends you has nothing to do with which tab you
+       happen to be looking at. -->
+  <div class="applybar">
+    <label for="paste-url" class="applybar-label">Apply to a link</label>
+    <input
+      type="text"
+      id="paste-url"
+      class="url-input"
+      spellcheck="false"
+      autocomplete="off"
+      placeholder="Paste a job posting URL (https://…) and press Enter"
+    />
+    <button id="paste-apply" class="primary" disabled>Open Claude session</button>
+  </div>
+
   <main>
     <!-- Pipeline -->
     <section id="pipeline" class="view active">

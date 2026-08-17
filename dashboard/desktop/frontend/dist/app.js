@@ -329,6 +329,64 @@ $("#scan").addEventListener("click", async () => {
   }
 });
 
+// ---- Apply to a pasted link ----
+// Applying is otherwise only reachable from a scanned row, so a posting a
+// friend sent over or one the filter never matched had no way in. The backend
+// Apply binding takes any URL, so this needs no new plumbing -- just an input.
+//
+// The same check runs here and in validateJobURL on the Go side: this one is
+// for instant feedback, that one is the real gate (the binding is reachable
+// regardless of what this page does).
+const pasteInput = $("#paste-url");
+const pasteBtn = $("#paste-apply");
+
+function isApplyableURL(s) {
+  const v = (s || "").trim();
+  if (!v || /\s/.test(v)) return false;
+  try {
+    const u = new URL(v);
+    return (u.protocol === "http:" || u.protocol === "https:") && !!u.host;
+  } catch {
+    return false;
+  }
+}
+
+// Enable only on a usable link, and flag a clearly-wrong one without nagging
+// while the field is still being typed into.
+function refreshPasteState() {
+  const v = pasteInput.value.trim();
+  const ok = isApplyableURL(v);
+  pasteBtn.disabled = !ok;
+  pasteInput.classList.toggle("invalid", v.length > 0 && !ok);
+}
+
+async function applyPastedURL() {
+  const url = pasteInput.value.trim();
+  if (!isApplyableURL(url)) {
+    toast("That needs to be a full http:// or https:// job link.");
+    return;
+  }
+  pasteBtn.disabled = true;
+  const label = pasteBtn.textContent;
+  pasteBtn.textContent = "Opening…";
+  try {
+    await backend().Apply(url);
+    pasteInput.value = "";
+    toast("Opening an apply session in Terminal…");
+  } catch (e) {
+    toast("Could not start apply: " + e);
+  } finally {
+    pasteBtn.textContent = label;
+    refreshPasteState();
+  }
+}
+
+pasteInput.addEventListener("input", refreshPasteState);
+pasteInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); applyPastedURL(); }
+});
+pasteBtn.addEventListener("click", applyPastedURL);
+
 // Clear empties the listing stores so the next scan re-runs the CURRENT
 // portals.yml filter over every posting, including ones an older filter
 // rejected (scan-history.tsv is the scanner's dedup memory, and a rejected
