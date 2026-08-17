@@ -108,6 +108,13 @@ func (a *App) Scan() (gui.ScanResult, error) {
 // Apply opens a Terminal window running the interactive evaluate+apply pipeline
 // for a posting. The session stops before Submit (per modes/apply.md and
 // AGENTS.md); the user reviews and submits themselves.
+// ClearListings empties the listing stores so the next scan repopulates them
+// under the current portals.yml filter. See gui.ClearListings for why retuning
+// title_filter does nothing without this.
+func (a *App) ClearListings() (gui.ClearResult, error) {
+	return gui.ClearListings(a.repoPath)
+}
+
 func (a *App) Apply(url string) error {
 	prompt := fmt.Sprintf(
 		"Evaluate this job posting if it isn't already evaluated, following modes/oferta.md: %s. "+

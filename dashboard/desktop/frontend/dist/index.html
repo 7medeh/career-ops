@@ -25,8 +25,13 @@
         <table id="apps-table">
           <thead>
             <tr>
-              <th>#</th><th>Company</th><th>Role</th><th>Score</th>
-              <th>Status</th><th>Comp</th><th></th>
+              <th data-key="Number" class="sortable"># <span class="arrow"></span></th>
+              <th data-key="Company" class="sortable">Company <span class="arrow"></span></th>
+              <th data-key="Role" class="sortable">Role <span class="arrow"></span></th>
+              <th data-key="Score" class="sortable">Score <span class="arrow"></span></th>
+              <th data-key="Status" class="sortable">Status <span class="arrow"></span></th>
+              <th data-key="CompEstimate" class="sortable">Comp <span class="arrow"></span></th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="apps-body"></tbody>
@@ -40,6 +45,7 @@
       <div class="toolbar">
         <span class="count" id="listings-count"></span>
         <button id="scan" class="primary">Scan for new roles</button>
+        <button id="clear" class="ghost" title="Empty the listing stores so the next scan re-runs your current filter over everything">Clear results</button>
       </div>
       <div class="table-wrap">
         <table id="listings-table">

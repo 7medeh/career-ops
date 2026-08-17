@@ -40,6 +40,11 @@ document.querySelectorAll("#listings-table th[data-key]").forEach((th) => {
   th.addEventListener("click", () => onSortHeaderClick(th.dataset.key));
 });
 
+// Sortable pipeline column headers.
+document.querySelectorAll("#apps-table th[data-key]").forEach((th) => {
+  th.addEventListener("click", () => onPipelineSortClick(th.dataset.key));
+});
+
 // ---- Pipeline ----
 function scoreClass(score) {
   if (score >= 4.2) return "hi";
@@ -47,12 +52,62 @@ function scoreClass(score) {
   return "lo";
 }
 
+// Column definitions for the pipeline table. Mirrors LISTING_COLUMNS: `type`
+// picks the comparator and `defaultDir` is the direction on first click, so
+// Score and # open high-to-low while text columns open A-Z.
+const PIPELINE_COLUMNS = [
+  { key: "Number", type: "num", defaultDir: "desc", value: (a) => a.Number || 0 },
+  { key: "Company", type: "str", defaultDir: "asc", value: (a) => a.Company || "" },
+  { key: "Role", type: "str", defaultDir: "asc", value: (a) => a.Role || "" },
+  { key: "Score", type: "num", defaultDir: "desc", value: (a) => a.Score || 0 },
+  { key: "Status", type: "str", defaultDir: "asc", value: (a) => a.Status || "" },
+  { key: "CompEstimate", type: "num", defaultDir: "desc", value: (a) => salaryValue(a.CompEstimate) },
+];
+
+let appsData = [];
+let appsMetrics = {};
+let pipelineSort = { key: "Number", dir: "desc" };
+
+function sortApps() {
+  const col = PIPELINE_COLUMNS.find((c) => c.key === pipelineSort.key);
+  if (!col) return;
+  const dir = pipelineSort.dir === "asc" ? 1 : -1;
+  appsData.sort((a, b) => {
+    const av = col.value(a), bv = col.value(b);
+    let cmp;
+    if (col.type === "num") cmp = av - bv;
+    else cmp = String(av).toLowerCase().localeCompare(String(bv).toLowerCase());
+    if (cmp === 0) return (b.Number || 0) - (a.Number || 0); // stable tiebreak
+    return cmp * dir;
+  });
+}
+
+// Clicking a pipeline header sorts by it; clicking the active one flips it.
+function onPipelineSortClick(key) {
+  const col = PIPELINE_COLUMNS.find((c) => c.key === key);
+  if (!col) return;
+  if (pipelineSort.key === key) {
+    pipelineSort.dir = pipelineSort.dir === "asc" ? "desc" : "asc";
+  } else {
+    pipelineSort = { key, dir: col.defaultDir };
+  }
+  sortApps();
+  renderPipeline();
+}
+
 async function loadPipeline() {
   const app = backend();
   if (!app) return;
   const payload = await app.GetApplications();
-  const apps = payload.apps || [];
-  const m = payload.metrics || {};
+  appsData = payload.apps || [];
+  appsMetrics = payload.metrics || {};
+  sortApps();
+  renderPipeline();
+}
+
+function renderPipeline() {
+  const apps = appsData;
+  const m = appsMetrics;
 
   const metrics = $("#metrics");
   metrics.innerHTML = "";
@@ -69,6 +124,14 @@ async function loadPipeline() {
     card.appendChild(el("div", "lbl", lbl));
     metrics.appendChild(card);
   }
+
+  // Reflect sort direction in the header arrows.
+  document.querySelectorAll("#apps-table th[data-key]").forEach((th) => {
+    const arrow = th.querySelector(".arrow");
+    if (!arrow) return;
+    arrow.textContent = th.dataset.key === pipelineSort.key ? (pipelineSort.dir === "asc" ? "\u25B2" : "\u25BC") : "";
+    th.classList.toggle("sorted", th.dataset.key === pipelineSort.key);
+  });
 
   const body = $("#apps-body");
   body.innerHTML = "";
@@ -263,6 +326,54 @@ $("#scan").addEventListener("click", async () => {
   } finally {
     btn.disabled = false;
     btn.textContent = label;
+  }
+});
+
+// Clear empties the listing stores so the next scan re-runs the CURRENT
+// portals.yml filter over every posting, including ones an older filter
+// rejected (scan-history.tsv is the scanner's dedup memory, and a rejected
+// posting is suppressed permanently until that memory is cleared).
+//
+// Two-step inline confirm rather than confirm(): a modal dialog inside the
+// webview blocks the Wails runtime, and this is destructive enough to deserve
+// a deliberate second click.
+let clearArmed = false;
+const clearBtn = $("#clear");
+const clearLabel = clearBtn.textContent;
+
+function disarmClear() {
+  clearArmed = false;
+  clearBtn.textContent = clearLabel;
+  clearBtn.classList.remove("armed");
+}
+
+clearBtn.addEventListener("click", async () => {
+  if (clearBtn.disabled) return;
+
+  if (!clearArmed) {
+    clearArmed = true;
+    clearBtn.textContent = "Click again to confirm";
+    clearBtn.classList.add("armed");
+    toast("Clears scanned listings and scan history. Your tracker is untouched, and a backup is written first.");
+    setTimeout(disarmClear, 6000);
+    return;
+  }
+
+  disarmClear();
+  clearBtn.disabled = true;
+  clearBtn.textContent = "Clearing\u2026";
+  try {
+    const r = await backend().ClearListings();
+    await loadListings();
+    toast(
+      `Cleared ${r.scanHistoryRemoved} history rows and ${r.pipelineRemoved} inbox entries. ` +
+      `Backup: ${r.backupDir}. Run a scan to repopulate.`
+    );
+  } catch (e) {
+    toast("Clear failed: " + e);
+  } finally {
+    clearBtn.disabled = false;
+    clearBtn.textContent = clearLabel;
   }
 });
 
