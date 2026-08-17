@@ -66,6 +66,8 @@ const PIPELINE_COLUMNS = [
 
 let appsData = [];
 let appsMetrics = {};
+// reportNumber -> count of generated PDFs found on disk, from the backend.
+let appsResumes = {};
 let pipelineSort = { key: "Number", dir: "desc" };
 
 function sortApps() {
@@ -101,6 +103,7 @@ async function loadPipeline() {
   const payload = await app.GetApplications();
   appsData = payload.apps || [];
   appsMetrics = payload.metrics || {};
+  appsResumes = payload.resumes || {};
   sortApps();
   renderPipeline();
 }
@@ -173,6 +176,13 @@ function renderPipeline() {
       const open = el("button", "link-btn", "Open");
       open.addEventListener("click", () => backend().OpenURL(a.JobURL));
       actionTd.appendChild(open);
+    }
+    // Driven by what the backend actually found in output/, not by the
+    // tracker's PDF column, which drifts from disk in both directions.
+    if (a.ReportNumber && (appsResumes[a.ReportNumber] || 0) > 0) {
+      const resume = el("button", "link-btn resume-btn", "Resume");
+      resume.addEventListener("click", () => openResume(a));
+      actionTd.appendChild(resume);
     }
     tr.appendChild(actionTd);
 
@@ -517,3 +527,195 @@ function waitForBackend(attempt = 0) {
 }
 
 window.addEventListener("DOMContentLoaded", () => waitForBackend());
+
+// ---- Resume inspector ----
+//
+// Opens the generated PDFs for one application: preview inline, then get the
+// file out. "Out" is three routes rather than one because the webview cannot
+// be a drag source for a real file -- see dragging notes on #resume-drag below.
+
+// Current inspector state. `docs` comes from the backend; `blobURLs` caches
+// one object URL per document path so flipping between the CV and its cover
+// letter does not re-cross the bridge.
+let resumeState = { app: null, docs: [], index: 0, blobURLs: new Map() };
+
+// Object URLs outlive the elements that reference them, so every one created
+// here is revoked when the inspector closes.
+function releaseResumeBlobs() {
+  for (const url of resumeState.blobURLs.values()) URL.revokeObjectURL(url);
+  resumeState.blobURLs.clear();
+}
+
+function currentDoc() {
+  return resumeState.docs[resumeState.index] || null;
+}
+
+async function openResume(app) {
+  const be = backend();
+  if (!be) return;
+  let docs = [];
+  try {
+    docs = (await be.GetResumes(app.ReportNumber)) || [];
+  } catch (e) {
+    toast("Could not look up the resume: " + e);
+    return;
+  }
+  if (!docs.length) {
+    toast(`No generated PDF found for ${app.Company}.`);
+    return;
+  }
+
+  releaseResumeBlobs();
+  resumeState = { app, docs, index: 0, blobURLs: new Map() };
+
+  $("#resume-title").textContent = `${app.Company} — ${app.Role || "Resume"}`;
+  renderDocTabs();
+  $("#resume-modal").hidden = false;
+  await showDoc(0);
+}
+
+// One chip per generated document. A lone CV needs no switcher, so the row is
+// hidden rather than rendered with a single un-clickable chip.
+function renderDocTabs() {
+  const wrap = $("#resume-doctabs");
+  wrap.innerHTML = "";
+  const multiple = resumeState.docs.length > 1;
+  wrap.hidden = !multiple;
+  if (!multiple) return;
+  resumeState.docs.forEach((doc, i) => {
+    const chip = el("button", "doc-tab" + (i === resumeState.index ? " active" : ""), doc.Kind);
+    chip.addEventListener("click", () => showDoc(i));
+    wrap.appendChild(chip);
+  });
+}
+
+async function showDoc(index) {
+  const doc = resumeState.docs[index];
+  if (!doc) return;
+  resumeState.index = index;
+  renderDocTabs();
+
+  const kb = Math.max(1, Math.round((doc.SizeBytes || 0) / 1024));
+  $("#resume-sub").textContent = `${doc.FileName} · ${kb} KB · generated ${doc.Modified}`;
+  $("#resume-dragname").textContent = doc.FileName;
+
+  const frame = $("#resume-frame");
+  const empty = $("#resume-empty");
+  frame.innerHTML = "";
+  empty.hidden = true;
+
+  let url = resumeState.blobURLs.get(doc.Path);
+  if (!url) {
+    try {
+      const b64 = await backend().GetResumeData(doc.Path);
+      url = URL.createObjectURL(base64ToBlob(b64, "application/pdf"));
+      resumeState.blobURLs.set(doc.Path, url);
+    } catch (e) {
+      // A preview failure is not a dead end: the file may still be openable
+      // externally, so the footer actions stay live and only the pane reports.
+      empty.textContent = "Could not render a preview: " + e;
+      empty.hidden = false;
+      return;
+    }
+  }
+
+  // An iframe rather than <embed>: WKWebView gives the iframe the full PDF
+  // viewer chrome (scroll, page count, zoom), which is the point of inspecting
+  // it here instead of just opening it externally.
+  const iframe = el("iframe");
+  iframe.setAttribute("title", doc.FileName);
+  iframe.src = url;
+  frame.appendChild(iframe);
+}
+
+// Decode in chunks: a multi-hundred-KB PDF becomes a byte array far larger
+// than String.fromCharCode's argument limit if applied in one spread.
+function base64ToBlob(b64, mime) {
+  const raw = atob(b64);
+  const chunks = [];
+  const size = 8192;
+  for (let i = 0; i < raw.length; i += size) {
+    const slice = raw.slice(i, i + size);
+    const bytes = new Uint8Array(slice.length);
+    for (let j = 0; j < slice.length; j++) bytes[j] = slice.charCodeAt(j);
+    chunks.push(bytes);
+  }
+  return new Blob(chunks, { type: mime });
+}
+
+function closeResume() {
+  $("#resume-modal").hidden = true;
+  $("#resume-frame").innerHTML = "";
+  releaseResumeBlobs();
+  resumeState = { app: null, docs: [], index: 0, blobURLs: new Map() };
+}
+
+$("#resume-close").addEventListener("click", closeResume);
+$("#resume-modal").querySelector(".modal-backdrop").addEventListener("click", closeResume);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("#resume-modal").hidden) closeResume();
+});
+
+$("#resume-save").addEventListener("click", async () => {
+  const doc = currentDoc();
+  if (!doc) return;
+  try {
+    const dest = await backend().SaveResumeCopy(doc.Path);
+    // An empty path means the user dismissed the dialog, which is a normal
+    // outcome and not worth a toast.
+    if (dest) toast("Saved to " + dest);
+  } catch (e) {
+    toast("Save failed: " + e);
+  }
+});
+
+$("#resume-reveal").addEventListener("click", async () => {
+  const doc = currentDoc();
+  if (!doc) return;
+  try {
+    await backend().RevealResume(doc.Path);
+  } catch (e) {
+    toast("Could not reveal the file: " + e);
+  }
+});
+
+$("#resume-open").addEventListener("click", async () => {
+  const doc = currentDoc();
+  if (!doc) return;
+  try {
+    await backend().OpenResume(doc.Path);
+  } catch (e) {
+    toast("Could not open the file: " + e);
+  }
+});
+
+// Dragging the PDF out.
+//
+// There is no way to hand a real file to Finder from here. Wails v2 exposes
+// OnFileDrop for files dropped *into* the window but has no drag-source API,
+// and the WKWebView backing the app ignores the DataTransfer "DownloadURL"
+// convention that makes HTML5 drag-to-desktop work in a normal browser.
+//
+// So the chip advertises the file three ways and lets the drop target pick
+// whichever it understands: DownloadURL for any webview that grows support,
+// text/uri-list for editors and upload zones that accept a file:// URL, and
+// text/plain so a drop into a text field yields the path instead of nothing.
+// Targets that understand none of these are why Reveal sits next to it.
+const dragChip = $("#resume-drag");
+
+dragChip.addEventListener("dragstart", (e) => {
+  const doc = currentDoc();
+  if (!doc) { e.preventDefault(); return; }
+  const fileURL = "file://" + encodeURI(doc.AbsPath);
+  try {
+    e.dataTransfer.setData("DownloadURL", `application/pdf:${doc.FileName}:${fileURL}`);
+  } catch (_) {
+    // Not supported here; the two payloads below still apply.
+  }
+  e.dataTransfer.setData("text/uri-list", fileURL);
+  e.dataTransfer.setData("text/plain", doc.AbsPath);
+  e.dataTransfer.effectAllowed = "copy";
+  dragChip.classList.add("dragging");
+});
+
+dragChip.addEventListener("dragend", () => dragChip.classList.remove("dragging"));

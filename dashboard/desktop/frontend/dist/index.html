@@ -116,6 +116,46 @@
     </section>
   </main>
 
+  <!-- Resume inspector. Opens over whatever tab you are on, so the pipeline
+       row you launched it from stays put underneath. -->
+  <div id="resume-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close="1"></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="resume-title">
+      <header class="modal-head">
+        <div class="modal-titles">
+          <div class="modal-title" id="resume-title">Resume</div>
+          <div class="modal-sub" id="resume-sub"></div>
+        </div>
+        <button class="ghost" id="resume-close" title="Close (Esc)">&times;</button>
+      </header>
+
+      <!-- One chip per generated document: the tailored CV and, when one was
+           generated, its cover letter. Hidden entirely for a single document. -->
+      <div class="doc-tabs" id="resume-doctabs" hidden></div>
+
+      <div class="modal-body">
+        <div class="pdf-frame" id="resume-frame"></div>
+        <p class="empty" id="resume-empty" hidden></p>
+      </div>
+
+      <footer class="modal-foot">
+        <!-- Drag source. WKWebView cannot hand a real file to Finder, so this
+             carries the file URL for apps that accept one and the actions to
+             its right are the guaranteed routes out. -->
+        <div class="drag-chip" id="resume-drag" draggable="true"
+             title="Drag into an app that accepts a file URL. For Finder or the desktop, use Reveal.">
+          <span class="drag-grip">&#x2630;</span>
+          <span class="drag-name" id="resume-dragname"></span>
+        </div>
+        <div class="modal-actions">
+          <button class="ghost" id="resume-reveal" title="Show the file selected in your file manager, ready to drag anywhere">Reveal in Finder</button>
+          <button class="ghost" id="resume-open" title="Open in your default PDF app">Open</button>
+          <button class="primary" id="resume-save" title="Write a copy wherever you choose">Save a copy&hellip;</button>
+        </div>
+      </footer>
+    </div>
+  </div>
+
   <div id="toast" class="toast" hidden></div>
 
   <script src="app.js"></script>

@@ -190,3 +190,85 @@ td.company { font-weight: 600; }
 
 /* Armed state for the two-step Clear confirm. */
 .ghost.armed { border-color: var(--red); color: var(--red); }
+
+/* ---- Resume inspector ---- */
+
+/* The row button that opens the inspector. Sits next to Open in the actions
+   cell and is rendered only when a generated PDF was actually found. */
+.link-btn.resume-btn { color: var(--blue); }
+
+.modal {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 28px;
+}
+.modal[hidden] { display: none; }
+.modal-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.45);
+}
+.modal-panel {
+  position: relative;
+  display: flex; flex-direction: column;
+  width: min(920px, 100%); height: min(88vh, 100%);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; box-shadow: var(--shadow); overflow: hidden;
+}
+
+.modal-head {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+}
+.modal-titles { flex: 1; min-width: 0; }
+.modal-title { font-weight: 700; font-size: 15px; }
+.modal-sub {
+  color: var(--subtext); font-size: 12.5px; margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.modal-head .ghost { font-size: 20px; line-height: 1; padding: 2px 10px; }
+
+/* Document switcher. Hidden when there is only a CV. */
+.doc-tabs {
+  display: flex; gap: 6px;
+  padding: 10px 16px 0;
+}
+.doc-tab {
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--subtext);
+  border-radius: 999px; padding: 4px 13px; font-size: 12.5px; cursor: pointer;
+}
+.doc-tab.active {
+  background: var(--accent); border-color: var(--accent); color: var(--accent-text);
+  font-weight: 600;
+}
+
+.modal-body { flex: 1; min-height: 0; padding: 12px 16px; }
+.pdf-frame {
+  width: 100%; height: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+}
+.pdf-frame iframe, .pdf-frame embed { width: 100%; height: 100%; border: 0; }
+
+.modal-foot {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-top: 1px solid var(--border);
+}
+
+/* Drag source for the generated PDF. Deliberately looks grabbable rather than
+   clickable: it is a handle, not a button, and the buttons beside it are the
+   routes that always work. */
+.drag-chip {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  background: var(--surface-2); border: 1px dashed var(--border);
+  border-radius: 8px; padding: 6px 11px; font-size: 12.5px; color: var(--subtext);
+  cursor: grab; user-select: none;
+}
+.drag-chip:active { cursor: grabbing; }
+.drag-chip.dragging { opacity: .55; border-color: var(--accent); }
+.drag-grip { color: var(--subtext); font-size: 11px; }
+.drag-name {
+  max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text);
+}
+
+.modal-actions { margin-left: auto; display: flex; gap: 8px; flex-shrink: 0; }

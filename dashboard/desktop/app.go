@@ -38,6 +38,13 @@ type PipelinePayload struct {
 	Apps     []model.CareerApplication `json:"apps"`
 	Metrics  model.PipelineMetrics     `json:"metrics"`
 	Progress model.ProgressMetrics     `json:"progress"`
+	// Resumes counts the generated PDFs found on disk per report number, so
+	// the Pipeline tab can show the inspector only where there is something to
+	// inspect. The tracker's own PDF column is not usable for this: it is
+	// hand-maintained text that drifts from output/ in both directions -- a ✅
+	// survives a deleted file, and a PDF generated after the row was merged
+	// leaves the column at ❌.
+	Resumes map[string]int `json:"resumes"`
 }
 
 // GetApplications returns the tracker rows (enriched with report-summary fields)
@@ -47,17 +54,23 @@ func (a *App) GetApplications() PipelinePayload {
 	metrics := data.ComputeMetrics(apps)
 	progress := data.ComputeProgressMetrics(apps)
 
+	resumes := make(map[string]int)
 	for i := range apps {
 		if apps[i].ReportPath != "" {
 			arch, tldr, remote, comp := data.LoadReportSummary(a.repoPath, apps[i].ReportPath)
 			apps[i].Archetype, apps[i].TlDr, apps[i].Remote, apps[i].CompEstimate = arch, tldr, remote, comp
+		}
+		if apps[i].ReportNumber != "" {
+			if n := len(gui.ResolveResumes(a.repoPath, apps[i])); n > 0 {
+				resumes[apps[i].ReportNumber] = n
+			}
 		}
 	}
 	if apps == nil {
 		apps = []model.CareerApplication{}
 	}
 
-	return PipelinePayload{Apps: apps, Metrics: metrics, Progress: progress}
+	return PipelinePayload{Apps: apps, Metrics: metrics, Progress: progress, Resumes: resumes}
 }
 
 // GetListings returns open, not-yet-evaluated postings.
@@ -98,6 +111,75 @@ func (a *App) OpenURL(rawURL string) {
 		return
 	}
 	wruntime.BrowserOpenURL(a.ctx, rawURL)
+}
+
+// GetResumes returns the generated PDFs belonging to an application -- the
+// tailored CV and any companion cover letter -- best match first.
+//
+// Matched by report number rather than tracker row number because the report is
+// what records the PDF linkage; rows without a report fall through to the
+// company-slug matching in gui.ResolveResumes.
+func (a *App) GetResumes(reportNumber string) []gui.ResumeDoc {
+	for _, app := range data.ParseApplications(a.repoPath) {
+		if app.ReportNumber != reportNumber {
+			continue
+		}
+		if docs := gui.ResolveResumes(a.repoPath, app); docs != nil {
+			return docs
+		}
+		break
+	}
+	return []gui.ResumeDoc{}
+}
+
+// GetResumeData returns a generated PDF as base64 for inline preview. The path
+// is re-validated backend-side; see gui.ResolveResumeFile.
+func (a *App) GetResumeData(relPath string) (string, error) {
+	return gui.ReadResumeBase64(a.repoPath, relPath)
+}
+
+// SaveResumeCopy asks the user where to put a copy of a generated PDF and
+// writes it there. Returns the chosen path, or "" when the user cancels --
+// cancelling is not an error and must not surface as one.
+func (a *App) SaveResumeCopy(relPath string) (string, error) {
+	abs, err := gui.ResolveResumeFile(a.repoPath, relPath)
+	if err != nil {
+		return "", err
+	}
+	dest, err := wruntime.SaveFileDialog(a.ctx, wruntime.SaveDialogOptions{
+		Title:           "Save resume copy",
+		DefaultFilename: filepath.Base(abs),
+		Filters: []wruntime.FileFilter{
+			{DisplayName: "PDF documents (*.pdf)", Pattern: "*.pdf"},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(dest) == "" {
+		return "", nil // user cancelled
+	}
+	if err := gui.CopyResumeTo(a.repoPath, relPath, dest); err != nil {
+		return "", err
+	}
+	return dest, nil
+}
+
+// RevealResume shows a generated PDF selected in the platform file manager.
+// This is the supported route for dragging the file out of the dashboard --
+// see gui.RevealResume for why the webview cannot be the drag source itself.
+func (a *App) RevealResume(relPath string) error {
+	return gui.RevealResume(a.repoPath, relPath)
+}
+
+// OpenResume opens a generated PDF in the user's default PDF application.
+func (a *App) OpenResume(relPath string) error {
+	abs, err := gui.ResolveResumeFile(a.repoPath, relPath)
+	if err != nil {
+		return err
+	}
+	wruntime.BrowserOpenURL(a.ctx, "file://"+filepath.ToSlash(abs))
+	return nil
 }
 
 // Scan runs a native ATS scan (Greenhouse/Ashby/Lever) directly from the
